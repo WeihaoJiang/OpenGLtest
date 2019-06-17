@@ -6,14 +6,14 @@ import android.os.Bundle;
 
 public class MainActivity extends AppCompatActivity {
 
+    private FGLView mGLView;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        GLSurfaceView demoGlv = findViewById(R.id.glv_main_demo);
-        demoGlv.setEGLContextClientVersion(2);
-        demoGlv.setRenderer(new MyRenderer());
-        demoGlv.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+        mGLView = findViewById(R.id.glv_main_demo);
+
+        mGLView.setShape(Oval.class);
     }
 }

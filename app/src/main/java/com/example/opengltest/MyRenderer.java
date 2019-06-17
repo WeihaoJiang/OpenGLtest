@@ -2,6 +2,7 @@ package com.example.opengltest;
 
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
+import android.opengl.Matrix;
 import android.util.Log;
 
 import java.nio.ByteBuffer;
@@ -15,6 +16,21 @@ public class MyRenderer implements GLSurfaceView.Renderer {
     private int program;
     private int vPosition;
     private int uColor;
+
+    private float[] mViewMatrix=new float[16];
+    private float[] mProjectMatrix=new float[16];
+    private float[] mMVPMatrix=new float[16];
+    private int mPositionHandle;
+    private int mColorHandle;
+    //顶点个数
+    private final int vertexCount = triangleCoords.length / COORDS_PER_VERTEX;
+    //顶点之间的偏移量
+    private final int vertexStride = COORDS_PER_VERTEX * 4; // 每个顶点四个字节
+
+    private int mMatrixHandler;
+
+    //设置颜色，依次为红绿蓝和透明通道
+    float color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
     /**
      * 加载制定shader的方法
@@ -128,7 +144,7 @@ public class MyRenderer implements GLSurfaceView.Renderer {
         uColor = GLES20.glGetUniformLocation(program, "uColor");
 
         // 设置clear color颜色RGBA(这里仅仅是设置清屏时GLES20.glClear()用的颜色值而不是执行清屏)
-        GLES20.glClearColor(1.0f, 0, 0, 1.0f);
+        GLES20.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
     /**
@@ -140,8 +156,14 @@ public class MyRenderer implements GLSurfaceView.Renderer {
      */
     @Override
     public void onSurfaceChanged(GL10 gl10, int width, int height) {
-        // 设置绘图的窗口(可以理解成在画布上划出一块区域来画图)
-        GLES20.glViewport(0, 0, width, height);
+        //计算宽高比
+        float ratio=(float)width/height;
+        //设置透视投影
+        Matrix.frustumM(mProjectMatrix, 0, -ratio, ratio, -1, 1, 3, 7);
+        //设置相机位置
+        Matrix.setLookAtM(mViewMatrix, 0, 0, 0, 7.0f, 0f, 0f, 0f, 0f, 1.0f, 0.0f);
+        //计算变换矩阵
+        Matrix.multiplyMM(mMVPMatrix,0,mProjectMatrix,0,mViewMatrix,0);
     }
 
     /**
@@ -154,6 +176,17 @@ public class MyRenderer implements GLSurfaceView.Renderer {
      */
     @Override
     public void onDrawFrame(GL10 gl10) {
+
+        //将程序加入到OpenGLES2.0环境
+        GLES20.glUseProgram(program);
+        //获取变换矩阵vMatrix成员句柄
+        mMatrixHandler= GLES20.glGetUniformLocation(program,"vMatrix");
+        //指定vMatrix的值
+        GLES20.glUniformMatrix4fv(mMatrixHandler,1,false,mMVPMatrix,0);
+        //获取顶点着色器的vPosition成员句柄
+        mPositionHandle = GLES20.glGetAttribLocation(program, "vPosition");
+        //启用三角形顶点的句柄
+        GLES20.glEnableVertexAttribArray(mPositionHandle);
         // 获取图形的顶点坐标
         FloatBuffer vertices = getVertices();
 
@@ -173,18 +206,28 @@ public class MyRenderer implements GLSurfaceView.Renderer {
     }
 
     // 顶点着色器的脚本
-    private static final String verticesShader
-            = "attribute vec2 vPosition;            \n" // 顶点位置属性vPosition
-            + "void main(){                         \n"
-            + "   gl_Position = vec4(vPosition,0,1);\n" // 确定顶点位置
-            + "}";
+    private static final String verticesShader =
+        "attribute vec4 vPosition;" +
+                "uniform mat4 vMatrix;"+
+                "void main() {" +
+                "  gl_Position = vMatrix*vPosition;" +
+                "}";
 
     // 片元着色器的脚本
-    private static final String fragmentShader
-            = "precision mediump float;         \n" // 声明float类型的精度为中等(精度越高越耗资源)
-            + "uniform vec4 uColor;             \n" // uniform的属性uColor
-            + "void main(){                     \n"
-            + "   gl_FragColor = uColor;        \n" // 给此片元的填充色
-            + "}";
+    private static final String fragmentShader =
+               "precision mediump float;" +
+                       "uniform vec4 vColor;" +
+                       "void main() {" +
+                       "  gl_FragColor = vColor;" +
+                       "}";
+
+
+
+    static final int COORDS_PER_VERTEX = 3;
+    static float triangleCoords[] = {
+            0.5f,  0.5f, 0.0f, // top
+            -0.5f, -0.5f, 0.0f, // bottom left
+            0.5f, -0.5f, 0.0f  // bottom right
+    };
 }
 
